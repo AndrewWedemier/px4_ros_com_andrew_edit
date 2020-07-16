@@ -114,7 +114,7 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 	*topic_ID = 255;
 
 	ssize_t len = node_read((void *)(rx_buffer + rx_buff_pos), sizeof(rx_buffer) - rx_buff_pos);
-
+	//changed from len <=0 to len < 0 by awedemier
 	if (len <= 0) {
 		int errsv = errno;
 
@@ -150,7 +150,7 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 	// Start not found
 	if (msg_start_pos > rx_buff_pos - header_size) {
 #ifndef PX4_INFO
-		printf("                                 (↓↓ %u)\n", msg_start_pos);
+		//printf("                                 (↓↓ %u)\n", msg_start_pos);
 #else
 		PX4_INFO("                                 (↓↓ %u)", msg_start_pos);
 #endif /* PX4_INFO */
@@ -165,9 +165,11 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 	struct Header *header = (struct Header *)&rx_buffer[msg_start_pos];
 	uint32_t payload_len = ((uint32_t)header->payload_len_h << 8) | header->payload_len_l;
 
-	// The message won't fit the buffer.
+	// The message won't fit the buffer. Additional thought maybe there is an error in start of message where the sequence  >>>> occurs and payload length becomes incorrect => a.wedemier
 	if (buffer_len < header_size + payload_len) {
-		return -EMSGSIZE;
+        memmove(rx_buffer, rx_buffer + msg_start_pos + 1, rx_buff_pos - (msg_start_pos + 1) ); // added this line to drop any garbage messages in rx_buffer and the leading '>' => a.wedemier
+        rx_buff_pos = rx_buff_pos - ( msg_start_pos + 1 ); // move rx_buff_pos to allow the program to read in more data and end the infinite loop that does nothing => a.wedemier
+        return -EMSGSIZE;
 	}
 
 	// We do not have a complete message yet
@@ -175,7 +177,7 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 		// If there's garbage at the beginning, drop it
 		if (msg_start_pos > 0) {
 #ifndef PX4_INFO
-			printf("                                 (↓ %u)\n", msg_start_pos);
+			//printf("                                 (↓ %u)\n", msg_start_pos);
 #else
 			PX4_INFO("                                 (↓ %u)", msg_start_pos);
 #endif /* PX4_INFO */
@@ -266,7 +268,7 @@ UART_node::~UART_node()
 int UART_node::init()
 {
 	// Open a serial port
-	uart_fd = open(uart_name, O_RDWR | O_NOCTTY | O_NONBLOCK);
+	uart_fd = open(uart_name, O_RDWR | O_NOCTTY | O_NONBLOCK );
 
 	if (uart_fd < 0) {
 #ifndef PX4_ERR
@@ -300,7 +302,7 @@ int UART_node::init()
         //Set up the UART for non-canonical binary communication: 8 bits, 1 stop bit, no parity,
         //no flow control, no modem control
         uart_config.c_iflag &= !(INPCK | ISTRIP | INLCR | IGNCR | ICRNL | IXON | IXANY | IXOFF);
-        uart_config.c_iflag |= IGNBRK | IGNPAR;
+        uart_config.c_iflag |= IGNBRK | IGNPAR ;
 
         uart_config.c_oflag &= !(OPOST | ONLCR | OCRNL | ONOCR | ONLRET | OFILL | NLDLY | VTDLY);
         uart_config.c_oflag |= NL0 | VT0;
@@ -352,9 +354,10 @@ int UART_node::init()
 
 	char aux[64];
 	bool flush = false;
-
-	while (0 < ::read(uart_fd, (void *)&aux, 64)) {
+//    uint32_t  flush_count = 0;
+	while (0 < ::read(uart_fd, (void *)&aux, 64) ) { //&& flush_count <= 100) {
 		flush = true;
+        //flush_count++;
 /**
  * According to px4_time.h, px4_usleep() is only defined when lockstep is set
  * to be used
@@ -419,6 +422,8 @@ ssize_t UART_node::node_read(void *buffer, size_t len)
 	if (r == 1 && (poll_fd[0].revents & POLLIN)) {
 		ret = ::read(uart_fd, buffer, len);
 	}
+    //if( r >=0 & POLLIN)
+    //    ret = ::read(uart_fd, buffer, len);
 
 	return ret;
 }

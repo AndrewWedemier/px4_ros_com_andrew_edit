@@ -283,23 +283,26 @@ int main(int argc, char** argv)
             total_read += length;
             receiving = true;
             end = std::chrono::steady_clock::now();
-        }
-
-        if ((receiving && std::chrono::duration<double>(std::chrono::steady_clock::now() - end).count() > WAIT_CNST) ||
-            (!running  && loop > 1))
-        {
-            std::chrono::duration<double>  elapsed_secs = end - start;
-            printf("\nSENT:     %lu messages - %lu bytes\n",
-                    (unsigned long)sent, (unsigned long)total_sent);
-            printf("RECEIVED: %d messages - %d bytes; %d LOOPS - %.03f seconds - %.02fKB/s\n\n",
-                    received, total_read, loop, elapsed_secs.count(), (double)total_read/(1000*elapsed_secs.count()));
-            received = sent = total_read = total_sent = 0;
-            receiving = false;
+            usleep(_options.sleep_us);
         }
 @[else]@
-        usleep(_options.sleep_us);
+        //usleep(_options.sleep_us);
 @[end if]@
+        
     }
+
+    if ((receiving && std::chrono::duration<double>(std::chrono::steady_clock::now() - end).count() > WAIT_CNST) ||
+        (!running  && loop > 1))
+    {
+        std::chrono::duration<double>  elapsed_secs = end - start;
+        printf("\nSENT:     %lu messages - %lu bytes\n",
+                (unsigned long)sent, (unsigned long)total_sent);
+        printf("RECEIVED: %d messages - %d bytes; %d LOOPS - %.03f seconds - %.02fKB/s\n\n",
+                received, total_read, loop, elapsed_secs.count(), (double)total_read/(1000*elapsed_secs.count()));
+        received = sent = total_read = total_sent = 0;
+        receiving = false;
+    }
+
 @[if recv_topics]@
     exit_sender_thread = true;
     t_send_queue_cv.notify_one();
