@@ -74,7 +74,7 @@ protected:
 
 protected:
 	uint32_t rx_buff_pos;
-	char rx_buffer[1024] = {};
+	char rx_buffer[4096] = {};
 
 private:
 	struct __attribute__((packed)) Header {
