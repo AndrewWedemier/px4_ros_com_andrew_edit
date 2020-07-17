@@ -73,7 +73,7 @@ recv_topics = [(alias[idx] if alias[idx] else s.short_name) for idx, s in enumer
 #include "microRTPS_timesync.h"
 #include "RtpsTopics.h"
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
 
 // Default values
 #define DEVICE "/dev/ttyACM0"
