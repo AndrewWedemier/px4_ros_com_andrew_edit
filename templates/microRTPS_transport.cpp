@@ -114,8 +114,8 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 	*topic_ID = 255;
 
 	ssize_t len = node_read((void *)(rx_buffer + rx_buff_pos), sizeof(rx_buffer) - rx_buff_pos);
-	//changed from len <=0 to len < 0 by awedemier
-	if (len <= 0) {
+	//changed from len <=0 to len < 0. Continue processing even if no addtional message is read  by awedemier
+	if (len < 0) {
 		int errsv = errno;
 
 		if (errsv && EAGAIN != errsv && ETIMEDOUT != errsv) {
@@ -200,6 +200,11 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 		PX4_ERR("                                 (↓ %lu)", (unsigned long)(header_size + payload_len));
 #endif /* PX4_ERR */
 		len = -1;
+        //if there is a CRC error, I cannot trust payload len => Andrew St. Aubyn Wedemier
+        rx_buff_pos -= ( msg_start_pos + 1 );
+        // drop garbage up just beyond the start of the message
+        memmove(rx_buffer, rx_buffer + (msg_start_pos + 1 ), rx_buff_pos );
+        return len;
 
 	} else {
 		// copy message to outbuffer and set other return values
@@ -209,7 +214,8 @@ ssize_t Transport_node::read(uint8_t *topic_ID, char out_buffer[], size_t buffer
 	}
 
 	// discard message from rx_buffer
-	rx_buff_pos -= header_size + payload_len;
+    // also subtract off msg_start_pos  <= Andrew St. Aubyn Wedemier
+	rx_buff_pos -=  msg_start_pos +  header_size + payload_len;
 	memmove(rx_buffer, rx_buffer + msg_start_pos + header_size + payload_len, rx_buff_pos);
 
 	return len;
